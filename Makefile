@@ -56,7 +56,7 @@ all: build
 
 .PHONY: build
 build:
-	@docker build -t $(TAG) $(BUILD_ARGS) .
+	@docker build -t $(TAG):$(TARGET) $(BUILD_ARGS) .
 
 #
 # Running Rules
