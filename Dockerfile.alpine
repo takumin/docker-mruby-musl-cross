@@ -1,0 +1,90 @@
+FROM alpine AS build
+
+ARG TARGET
+
+RUN apk add --no-cache \
+      autoconf \
+      automake \
+      bison \
+      curl \
+      flex \
+      g++ \
+      gcc \
+      libtool \
+      make \
+      musl-dev \
+      patch \
+      pkgconf
+
+RUN curl -fsSL --retry 10 --retry-connrefused -o musl-cross-make-master.tar.gz \
+      https://github.com/richfelker/musl-cross-make/archive/master.tar.gz
+
+RUN tar -xf musl-cross-make-master.tar.gz && rm musl-cross-make-master.tar.gz
+
+WORKDIR musl-cross-make-master
+
+RUN echo "TARGET         = ${TARGET}"                          >  config.mak
+RUN echo 'OUTPUT         = /usr/local'                         >> config.mak
+RUN echo 'DL_CMD         = curl -fsSL'                         >> config.mak
+RUN echo 'DL_CMD        += --retry 10'                         >> config.mak
+RUN echo 'DL_CMD        += --retry-connrefused'                >> config.mak
+RUN echo 'DL_CMD        += -o'                                 >> config.mak
+RUN echo 'GNU_SITE       = http://ftpmirror.gnu.org/'          >> config.mak
+RUN echo 'COMMON_CONFIG += CFLAGS="-g0 -Os"'                   >> config.mak
+RUN echo 'COMMON_CONFIG += CXXFLAGS="-g0 -Os"'                 >> config.mak
+RUN echo 'COMMON_CONFIG += LDFLAGS="-s"'                       >> config.mak
+RUN echo 'COMMON_CONFIG += --disable-nls'                      >> config.mak
+RUN echo 'GCC_CONFIG    += --enable-languages=c,c++'           >> config.mak
+RUN echo 'GCC_CONFIG    += --disable-libquadmath'              >> config.mak
+RUN echo 'GCC_CONFIG    += --disable-decimal-float'            >> config.mak
+RUN echo 'GCC_CONFIG    += --enable-default-pie'               >> config.mak
+RUN echo 'GCC_CONFIG    += --enable-default-ssp'               >> config.mak
+RUN echo 'COMMON_CONFIG += --with-debug-prefix-map=$(CURDIR)=' >> config.mak
+
+RUN sed -i -Ee 's@tar zxvf@tar zxf@' Makefile
+RUN sed -i -Ee 's@tar jxvf@tar jxf@' Makefile
+RUN sed -i -Ee 's@tar Jxvf@tar Jxf@' Makefile
+
+RUN make -j $(nproc) install
+
+WORKDIR ..
+
+RUN curl -fsSL --retry 10 --retry-connrefused -o musl-fts-master.tar.gz \
+      https://github.com/pullmoll/musl-fts/archive/master.tar.gz
+
+RUN tar -xf musl-fts-master.tar.gz && rm musl-fts-master.tar.gz
+
+WORKDIR musl-fts-master
+
+RUN ./bootstrap.sh
+RUN ./configure --prefix=/usr/local${TARGET} \
+      --build=x86_64-alpine-linux-musl --host=${TARGET}
+RUN make -j $(nproc) install
+
+FROM alpine
+
+COPY --from=build /usr/local /usr/local
+
+RUN apk add --no-cache \
+      autoconf \
+      automake \
+      bash \
+      bison \
+      curl \
+      file \
+      flex \
+      fts-dev \
+      g++ \
+      gcc \
+      git \
+      libtool \
+      make \
+      musl-dev \
+      patch \
+      pkgconf \
+      ruby \
+      ruby-rake \
+      wget \
+ && mkdir /mruby
+
+WORKDIR /mruby
