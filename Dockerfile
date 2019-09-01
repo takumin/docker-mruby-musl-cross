@@ -28,34 +28,38 @@ RUN apt-get update \
       curl \
       patch \
       unzip \
-      wget \
       xz-utils \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
 # Download Build Tools
-RUN curl -fsSL -o musl-cross-make-master.zip https://github.com/richfelker/musl-cross-make/archive/master.zip
+RUN curl -fsSL --retry 10 --retry-connrefused -o musl-cross-make-master.tar.gz \
+      https://github.com/richfelker/musl-cross-make/archive/master.tar.gz
 
 # Extract Build Tools
-RUN unzip -q musl-cross-make-master.zip
-
-# Move Dir
-RUN mv musl-cross-make-master musl-cross-gcc
+RUN tar -xf musl-cross-make-master.tar.gz && rm musl-cross-make-master.tar.gz
 
 # Working Dir
-WORKDIR musl-cross-gcc
+WORKDIR musl-cross-make-master
 
 # Config
-RUN echo "TARGET         = ${TARGET}"                                        >  config.mak
-RUN echo 'OUTPUT         = /usr/local'                                       >> config.mak
-RUN echo 'DL_CMD         = wget -nv -c -O'                                   >> config.mak
-RUN echo 'GNU_SITE       = http://ftpmirror.gnu.org/'                        >> config.mak
-RUN echo 'COMMON_CONFIG += CFLAGS="-g0 -Os" CXXFLAGS="-g0 -Os" LDFLAGS="-s"' >> config.mak
-RUN echo 'COMMON_CONFIG += --disable-nls'                                    >> config.mak
-RUN echo 'GCC_CONFIG    += --enable-languages=c,c++'                         >> config.mak
-RUN echo 'GCC_CONFIG    += --disable-libquadmath --disable-decimal-float'    >> config.mak
-RUN echo 'GCC_CONFIG    += --disable-multilib'                               >> config.mak
-RUN echo 'COMMON_CONFIG += --with-debug-prefix-map=$(CURDIR)='               >> config.mak
+RUN echo "TARGET         = ${TARGET}"                          >  config.mak
+RUN echo 'OUTPUT         = /usr/local'                         >> config.mak
+RUN echo 'DL_CMD         = curl -fsSL'                         >> config.mak
+RUN echo 'DL_CMD        += --retry 10'                         >> config.mak
+RUN echo 'DL_CMD        += --retry-connrefused'                >> config.mak
+RUN echo 'DL_CMD        += -o'                                 >> config.mak
+RUN echo 'GNU_SITE       = http://ftpmirror.gnu.org/'          >> config.mak
+RUN echo 'COMMON_CONFIG += CFLAGS="-g0 -Os"'                   >> config.mak
+RUN echo 'COMMON_CONFIG += CXXFLAGS="-g0 -Os"'                 >> config.mak
+RUN echo 'COMMON_CONFIG += LDFLAGS="-s"'                       >> config.mak
+RUN echo 'COMMON_CONFIG += --disable-nls'                      >> config.mak
+RUN echo 'GCC_CONFIG    += --enable-languages=c,c++'           >> config.mak
+RUN echo 'GCC_CONFIG    += --disable-libquadmath'              >> config.mak
+RUN echo 'GCC_CONFIG    += --disable-decimal-float'            >> config.mak
+RUN echo 'GCC_CONFIG    += --enable-default-pie'               >> config.mak
+RUN echo 'GCC_CONFIG    += --enable-default-ssp'               >> config.mak
+RUN echo 'COMMON_CONFIG += --with-debug-prefix-map=$(CURDIR)=' >> config.mak
 
 # Quiet Log
 RUN sed -i -e 's@tar zxvf@tar zxf@' Makefile
@@ -63,6 +67,20 @@ RUN sed -i -e 's@tar jxvf@tar jxf@' Makefile
 RUN sed -i -e 's@tar Jxvf@tar Jxf@' Makefile
 
 # Build
+RUN make -j $(nproc) install
+
+WORKDIR ..
+
+RUN curl -fsSL --retry 10 --retry-connrefused -o musl-fts-master.tar.gz \
+      https://github.com/pullmoll/musl-fts/archive/master.tar.gz
+
+RUN tar -xf musl-fts-master.tar.gz && rm musl-fts-master.tar.gz
+
+WORKDIR musl-fts-master
+
+RUN ./bootstrap.sh
+RUN ./configure --prefix=/usr/local${TARGET} \
+      --build=x86_64-alpine-linux-musl --host=${TARGET}
 RUN make -j $(nproc) install
 
 # Prod Stage
