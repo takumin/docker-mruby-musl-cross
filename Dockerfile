@@ -83,7 +83,7 @@ RUN tar -xf musl-fts-master.tar.gz && rm musl-fts-master.tar.gz
 WORKDIR musl-fts-master
 
 RUN ./bootstrap.sh
-RUN ./configure --prefix=/usr/local${TARGET} \
+RUN ./configure --prefix=/usr/local/${TARGET} \
       --build=x86_64-alpine-linux-musl --host=${TARGET}
 RUN make -j $(nproc) install
 
