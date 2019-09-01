@@ -22,11 +22,15 @@ RUN if [ -n "${DEBIAN_MIRROR}" ]; then \
 # Install Packages
 RUN apt-get update \
  && apt-get install -yqq --no-install-recommends \
+      autoconf \
+      automake \
       build-essential \
       bzip2 \
       ca-certificates \
       curl \
+      libtool \
       patch \
+      pkg-config \
       unzip \
       xz-utils \
  && apt-get clean \
